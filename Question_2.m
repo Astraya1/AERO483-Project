@@ -2,7 +2,7 @@
 
 run('Setup.m')
 
-% Initialize arrays
+% Initialize variable arrays
 [x, y, vx, vy] = deal(zeros(n, 1));
 
 % Apply initial conditions

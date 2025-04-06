@@ -20,3 +20,18 @@ y_gps = gps(:,3);
 g = 9.81;
 dt = 0.05;
 n = length(time_ins);
+
+% White noise and errors
+Wk = [0;0;0.03;0.03];
+Qk = Wk*Wk';
+R = 0.3*[10, 1];
+
+% State space matrices
+F = eye(4) + dt*[0 0 1 0;
+                 0 0 0 1;
+                 0 0 0 0;
+                 0 0 0 0];
+
+H = [1 0 0 0;
+     0 1 0 0];
+

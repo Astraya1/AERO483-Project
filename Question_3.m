@@ -16,8 +16,8 @@ for i = 1:10
     
     %Euler's forward method, but with noise added to acceleration
     for k = 1:n
-        ax_n = g*tan(theta(k)) + normrnd(0, 0.03);
-        ay_n = g*tan(phi(k)) + normrnd(0, 0.03);
+        ax_n = g*tan(theta(k)) + normrnd(0, Wk(3));
+        ay_n = g*tan(phi(k)) + normrnd(0, Wk(3));
         
         dvx_n = ax_n*dt;
         dvy_n = ay_n*dt;
