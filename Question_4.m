@@ -98,7 +98,7 @@ plot(x_gps, y_gps, 'r');
 plot(x_kalman(1,:),x_kalman(2,:), 'm', 'LineWidth',1.5)
 plot(x_gps, y_gps, 'rx', 'MarkerSize', 8, 'LineWidth', 1.5);
 
-title("Simulated System Dynamics of Quadcopter Without Noise");
+title("Kalman Filter Estimation of Simulated Quadcopter Dynamics");
 xlabel('x-Position (m)');
 ylabel('y-Position (m)');
 legend('INS Mechanization', 'GPS Measurements', 'Kalman Filter Estimation');
