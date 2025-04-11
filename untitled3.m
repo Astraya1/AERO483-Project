@@ -1,75 +1,106 @@
-Phi = [1 1; 0 1]
-Gam = [1 .5; 0 1]
-x0 = [100 -10]'
-u = [0 1.5]'
-Q = [1 0; 0 0.1]
-R = 1
-H = [1 0]
-
-x1m = Phi*x0+Gam*u
-P1m = Q
-R = 1
-P = P1m
-K = (H*P)'*inv(H*P*H'+R)
-x1p = x1m + K*(91.169-x1m(1))
-P1p = (eye(2)-K*H)*P1m
 
 
-x2m = Phi*x1p+Gam*u
-P2m = Phi*P1p*Phi' + Q
-P = P2m
-K = (H*P)'*inv(H*P*H'+R)
-Delta_y2 = 81.14-x2m(1)
-x2p = x2m + K*(81.14-x2m(1))
-P2p = (eye(2)-K*H)*P2m
-x3m = Phi*x2p+Gam*u
-P3m = Phi*P2p*Phi' + Q
-P = P3m
-K = (H*P)'*inv(H*P*H'+R)
-Delta_y3 = 72.591-x3m(1)
-x3p = x3m + K*(72.591-x3m(1))
-P3p = (eye(2)-K*H)*P3m
-x4m = Phi*x3p+Gam*u
-P4m = Phi*P3p*Phi' + Q
-P = P4m
-K = (H*P)'*inv(H*P*H'+R)
-Delta_y4 = 63.834-x4m(1)
-x4p = x4m + K*(63.834-x4m(1))
-P4p = (eye(2)-K*H)*P4m
-x5m = Phi*x4p+Gam*u
-P5m = Phi*P4p*Phi' + Q
-P = P5m
-K = (H*P)'*inv(H*P*H'+R)
-Delta_y5 = 56.975-x5m(1)
-x5p = x5m + K*(56.975-x5m(1))
-P5p = (eye(2)-K*H)*P5m
-x6m = Phi*x5p+Gam*u
-P6m = Phi*P5p*Phi' + Q
-P = P6m
-K = (H*P)'*inv(H*P*H'+R)
-x6p = x6m + K*(49.011-x6m(1))
-P6p = (eye(2)-K*H)*P6m
-x7m = Phi*x6p+Gam*u
-P7m = Phi*P6p*Phi' + Q
-P = P7m
-K = (H*P)'*inv(H*P*H'+R)
-x7p = x7m + K*(42.338-x7m(1))
-P7p = (eye(2)-K*H)*P7m
-x8m = Phi*x7p+Gam*u
-P8m = Phi*P7p*Phi' + Q
-P = P8m
-K = (H*P)'*inv(H*P*H'+R)
-x8p = x8m + K*(34.770-x8m(1))
-P8p = (eye(2)-K*H)*P8m
-x9m = Phi*x8p+Gam*u
-P9m = Phi*P8p*Phi' + Q
-P = P9m
-K = (H*P)'*inv(H*P*H'+R)
-x9p = x9m + K*(30.896-x9m(1))
-P9p = (eye(2)-K*H)*P9m
-x10m = Phi*x9p+Gam*u
-P10m = Phi*P9p*Phi' + Q
-P = P10m
-K = (H*P)'*inv(H*P*H'+R)
-x10p = x10m + K*(25.726-x10m(1))
-P10p = (eye(2)-K*H)*P10m
+%% Load Data
+ins_data = load('ins.txt');  % Format: [time, theta, phi]
+gps_data = load('gps.txt');  % Format: [time, x, y]
+
+%% Initialize Parameters
+g = 9.8;                    % Gravity (m/s^2)
+dt = 0.05;                  % IMU time step (s)
+sigma_GPS = 0.3;            % GPS noise standard deviation (m)
+
+% Initial State [x; y; vx; vy]
+x_hat = [0; 0; 0; 0];       % Start at origin, zero velocity
+
+% Initial Covariance Matrix
+P = zeros(4,4);             % Perfect initial knowledge (per project)
+
+% Process Noise Covariance (Q)
+w_k = [0; 0; 0.03; 0.03];   % Wind noise terms
+Q = w_k * w_k';             % Q = w_k * w_k^T
+
+% Measurement Noise Covariance (R)
+R = sigma_GPS^2 * eye(2);   % R = σ² * I (2x2)
+
+% Measurement Matrix (H)
+H = [1 0 0 0;               % Maps state to GPS [x; y]
+     0 1 0 0];
+
+%% Preallocate Storage
+N = length(ins_data);       % Number of IMU steps
+x_est = zeros(4, N);       % Estimated state history
+P_est = zeros(4,4,N);      % Covariance history
+gps_update_time = 0.5;      % GPS update interval (s)
+next_gps_time = 0.5;          % Time of next GPS update
+
+%% EKF Main Loop
+for k = 1:N
+    theta = ins_data(k, 2);
+    phi = ins_data(k, 3);
+    
+    % --- Prediction Step (Always) ---
+    % Nonlinear state update
+    x_hat(1) = x_hat(1) + x_hat(3)*dt;              % x position
+    x_hat(2) = x_hat(2) + x_hat(4)*dt;              % y position
+    x_hat(3) = x_hat(3) + g*tan(theta)*dt;          % vx velocity
+    x_hat(4) = x_hat(4) + g*tan(phi)*dt;            % vy velocity
+    
+    % Linearized state transition (Jacobian)
+    Phi = [1 0 dt  0;
+           0 1  0 dt;
+           0 0  1  0;
+           0 0  0  1];
+    
+    % Predict covariance
+    P = Phi * P * Phi' + Q;
+    
+    % --- Correction Step (Only at GPS times) ---
+    if mod(k-1,10) == 0 && k>1% Account for floating-point errors
+        % Find closest GPS measurement to current_time
+       
+        z_GPS = gps_data((k-1)/10,2:3)';
+
+        % Kalman Gain
+        K = P * H' / (H * P * H' + R);
+        
+        % State update
+        x_hat = x_hat + K * (z_GPS - H * x_hat);
+        
+        % Covariance update
+        P = (eye(4) - K * H) * P;
+        
+    end
+    
+    % Store results
+    x_est(:,k) = x_hat;
+    P_est(:,:,k) = P;
+end
+
+%% Plot Results
+figure;
+hold on; grid on;
+
+% Plot GPS measurements (every 0.5s)
+scatter(gps_data(:,2), gps_data(:,3), 'r', 'filled', 'DisplayName', 'GPS Data');
+
+% Plot EKF estimate
+plot(x_est(1,:), x_est(2,:), 'b-', 'LineWidth', 2, 'DisplayName', 'EKF Estimate');
+
+% Plot INS-only trajectory (for comparison)
+x_INS = [0; 0; 0; 0];
+x_INS_history = zeros(4,N);
+for k = 1:N
+    theta = ins_data(k,2);
+    phi = ins_data(k,3);
+    x_INS(1) = x_INS(1) + x_INS(3)*dt;
+    x_INS(2) = x_INS(2) + x_INS(4)*dt;
+    x_INS(3) = x_INS(3) + g*tan(theta)*dt;
+    x_INS(4) = x_INS(4) + g*tan(phi)*dt;
+    x_INS_history(:,k) = x_INS;
+end
+plot(x_INS_history(1,:), x_INS_history(2,:), 'g--', 'DisplayName', 'INS Only');
+
+title('Trajectory Estimation (GPS Updates Every 0.5s)');
+xlabel('x (m)'); ylabel('y (m)');
+legend('Location', 'best');
+axis equal;
