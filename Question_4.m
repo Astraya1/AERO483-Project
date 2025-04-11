@@ -1,5 +1,6 @@
 %% Question 4
 
+%% Kalman Filter Approximation
 run('Setup.m')
 
 syms tau
@@ -13,30 +14,27 @@ F = [0 0 1 0;
 H = [1 0 0 0;
      0 1 0 0];
 
-Pk = zeros(4);
-Qk = Wk*Wk';
-R = (0.3^2)*eye(2);
-Phi = eye(4) + F*dt;
+Pk = zeros(4,4); % Covariance matrix
+Qk = Wk*Wk'; % Noise covariance
+R = (0.3^2)*eye(2); % Measurement noise covariance
+Phi = eye(4) + F*dt; % State matrix
 
 x(1,1:4) = deal(0); % Initialize state vector to 0 with initial conditions.
 
-% x = [x,y,vx,vy]
-
-for k = 2:n
+for k = 1:n
     % Measurements
     theta_meas = ins(k,2);
     phi_meas = ins(k,3);
     
-    % Predicting state
-    x(k,1) = x(k-1,1) + x(k-1,3)*dt;
-    x(k,2) = x(k-1,2) + x(k-1,4)*dt;
-    x(k,3) = x(k-1,3) + (g*tan(theta_meas)+normrnd(0, Wk(3)))*dt;
-    x(k,4) = x(k-1,4) + (g*tan(phi_meas)+normrnd(0, Wk(3)))*dt;
-    
-    % State vector before Kalman correction
-    x_m = [x(k,1); x(k,2); x(k,3); x(k,4)];
+    % Update the next state vector
+    x(1) = x(1) + x(3)*dt;
+    x(2) = x(2) + x(4)*dt;
+    x(3) = x(3) + g*tan(theta_meas)*dt;
+    x(4) = x(4) + g*tan(phi_meas)*dt;
+
+    x = x';
   
-    % Predicting covariance
+    % Update covariance matrix
     Pk = Phi*Pk*Phi'+Qk;
 
     % Kalman Filter correction step
@@ -44,39 +42,66 @@ for k = 2:n
 
         % Extract gps data
         y = gps((k-1)/10,2:3)';
-
+        
+        % Calculate Kalman gain
         Kk = Pk*H'*inv(H*Pk*H'+R);
         
-        x_m = x_m + Kk*(y - H*x_m);
+        % Update state vector with Kalman filter
+        x = x + Kk*(y - H*x);
         
-        Pk_p = (eye(4)-Kk*H)*Pk;
+        % Update covariance matrix
+        Pk = (eye(4)-Kk*H)*Pk;
     
-        x(k+1,1:4) = x_m'
     end
+
+    x_kalman(:,k) = x';
 end
 
-% for i = 1:12
-%     u = [ins((i*5-4),2);ins((i*5-4),3)];
-% 
-%     x_m = Phi*x + Gam*u;
-%     P_m = Phi*P_m1*Phi' + Qk;
-%     y_m = H*x_m;
-% 
-%     K = (H*P_m)'*inv(H*P_m*H'+R);
-% 
-%     y = gps(i);
-% 
-%     x_p = x_m + K*(y-y_m);
-%     P_p = (eye(4)-K*H)*P_m;
-% 
-%     x_plot(i,1) = x_p(1);
-%     x_plot(i,2) = x_p(2);
-%     x_plot(i,3) = x_p(3);
-%     x_plot(i,4) = x_p(4);
-% 
-%     x_m = x_p;
-%     P_m = P_p;
-% 
-% end
+%% Copied code from Question 2
 
-plot(x(:,1),x(:,2))
+% Initialize variable arrays
+[x, y, vx, vy] = deal(zeros(n, 1));
+
+% Apply initial conditions
+[x(1), y(1), vx(1), vy(1)] = deal(0);
+
+% Simulate using Euler's forward method
+for k = 1:n
+
+    % Calculate acceleration terms
+    ax = g * tan(theta(k));
+    ay = g * tan(phi(k));
+    
+    % Calculate velocity deltas
+    dvx = ax*dt;
+    dvy = ay*dt;
+
+    % Calculate velocity terms
+    vx(k+1) = vx(k) + dvx;
+    vy(k+1) = vy(k) + dvy;
+
+    % Calculate position deltas
+    dx = vx(k)*dt + 0.5*ax*dt^2;
+    dy = vy(k)*dt + 0.5*ay*dt^2;
+
+    % Calculate position terms
+    x(k+1) = x(k) + dx;
+    y(k+1) = y(k) + dy;
+end
+
+%% Plots
+
+figure;
+hold on;
+plot(x, y, 'b');
+plot(x_gps, y_gps, 'r');
+plot(x_kalman(1,:),x_kalman(2,:), 'm', 'LineWidth',1.5)
+plot(x_gps, y_gps, 'rx', 'MarkerSize', 8, 'LineWidth', 1.5);
+
+title("Simulated System Dynamics of Quadcopter Without Noise");
+xlabel('x-Position (m)');
+ylabel('y-Position (m)');
+legend('INS Mechanization', 'GPS Measurements', 'Kalman Filter Estimation');
+
+grid on;
+axis equal;
